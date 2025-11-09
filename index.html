@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Oliwia ToDo App - Materialize Vanilla JS</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="grey lighten-4">
+  <nav>
+    <div class="nav-wrapper indigo">
+      <span class="brand-logo center">Oliwia ToDo App</span>
+    </div>
+  </nav>
+
+  <main class="container">
+    <div class="section">
+      <form id="task-form" class="card-panel">
+        <div class="row">
+          <div class="input-field col s12 m6">
+            <input id="title" type="text" required>
+            <label for="title">Tytuł *</label>
+          </div>
+          <div class="input-field col s12 m6">
+            <input id="assignee" type="text">
+            <label for="assignee">Wykonawca</label>
+          </div>
+        </div>
+        <div class="row">
+          <div class="input-field col s12 m6">
+            <textarea id="description" class="materialize-textarea"></textarea>
+            <label for="description">Opis</label>
+          </div>
+          <div class="input-field col s6 m3">
+            <select id="priority">
+              <option value="low">Niski</option>
+              <option value="medium">Średni</option>
+              <option value="high">Wysoki</option>
+            </select>
+            <label for="priority">Priorytet</label>
+          </div>
+          <div class="input-field col s6 m3">
+            <input id="deadline" type="text" class="datepicker">
+            <label for="deadline">Termin</label>
+          </div>
+        </div>
+        <div class="row">
+          <div class="input-field col s12 m6">
+            <input id="category" type="text">
+            <label for="category">Kategoria/Tagi (oddzielone przecinkami)</label>
+          </div>
+          <div class="input-field col s12 m6 right-align">
+            <button id="save-btn" type="submit" class="btn indigo waves-effect waves-light">
+              <i class="material-icons left">add_circle</i>Dodaj / Zapisz
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <div class="section">
+      <ul id="filters" class="tabs">
+        <li class="tab col s4"><a class="active indigo-text" href="#all">Wszystkie</a></li>
+        <li class="tab col s4"><a class="indigo-text" href="#active">Aktywne</a></li>
+        <li class="tab col s4"><a class="indigo-text" href="#completed">Zakończone</a></li>
+      </ul>
+    </div>
+
+    <div id="search" class="input-field">
+      <input type="text" id="search-tasks">
+      <label for="search-tasks">Wyszukaj zadanie...</label>
+    </div>
+
+    <div class="section">
+      <span id="counter" class="badge indigo white-text"></span>
+      <div class="right">
+        <button id="export-btn" class="btn-flat"><i class="material-icons">file_download</i></button>
+        <button id="import-btn" class="btn-flat"><i class="material-icons">file_upload</i></button>
+        <input type="file" id="import-file" class="hide" accept="application/json">
+      </div>
+    </div>
+
+    <ul id="tasks-list" class="collection z-depth-1"></ul>
+    <div id="empty-list" class="center grey-text" style="display:none;">Brak zadań.</div>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
