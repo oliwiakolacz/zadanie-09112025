@@ -1,11 +1,16 @@
 [
   {
     "id": 1,
-    "title": "Zaktualizowany tytuł",
-    "description": "Nowy opis",
+    "title": "Zrobić zakupy",
+    "description": "Mleko, chleb, masło",
+    "completed": false,
+    "createdAt": "2024-11-15T10:00:00Z"
+  },
+  {
+    "id": 2,
+    "title": "Odrobić zadanie z backendu",
+    "description": "REST API dla TODO",
     "completed": true,
-    "createdAt": "2025-11-22T18:25:00.735Z",
-    "ala": true,
-    "updatedAt": "2025-11-22T18:26:43.837Z"
+    "createdAt": "2024-11-15T11:00:00Z"
   }
 ]
