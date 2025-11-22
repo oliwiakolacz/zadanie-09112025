@@ -1,0 +1,11 @@
+[
+  {
+    "id": 1,
+    "title": "Zaktualizowany tytuł",
+    "description": "Nowy opis",
+    "completed": true,
+    "createdAt": "2025-11-22T18:25:00.735Z",
+    "ala": true,
+    "updatedAt": "2025-11-22T18:26:43.837Z"
+  }
+]
