@@ -15,7 +15,7 @@ app.get('/tasks', async (req, res) => {
   try {
     const data = await fs.readFile(filePath, 'utf8');
 
-    // Zabezpieczenie: jeśli plik jest pusty (0 bajtów lub same spacje), zwróć pustą tablicę
+    // Zabezpieczenie: jeśli plik jest pusty, zwróć pustą tablicę
     if (!data.trim()) {
       return res.json([]);
     }
@@ -37,7 +37,7 @@ app.post('/tasks', async (req, res) => {
   try {
     const userData = req.body;
 
-    // Walidacja: czy przesłano jakiekolwiek dane
+    // Walidacja: czy przesłano dane
     if (!userData || Object.keys(userData).length === 0) {
       return res.status(400).json({ error: 'Brak danych zadania' });
     }
@@ -54,23 +54,22 @@ app.post('/tasks', async (req, res) => {
       if (err.code !== 'ENOENT') throw err;
     }
 
-    // Wyliczanie nowego ID (maxId + 1)
+    // Wyliczanie nowego ID
     const maxId = currentTasks.reduce((max, task) => (task.id > max ? task.id : max), 0);
     const newId = maxId + 1;
 
-    // Tworzenie obiektu zadania
+    // Tworzenie obiektu
     const newTask = {
       id: newId,
-      ...userData,            // np. title, description
-      completed: false,       // Domyślnie false
+      ...userData,
+      completed: false,
       createdAt: new Date().toISOString()
     };
 
-    // Zapis do pliku
+    // Zapis
     currentTasks.push(newTask);
     await fs.writeFile(filePath, JSON.stringify(currentTasks, null, 2));
 
-    // Zwrot utworzonego obiektu
     res.status(201).json(newTask);
 
   } catch (error) {
@@ -84,9 +83,9 @@ app.put('/tasks/:id', async (req, res) => {
   const id = parseInt(req.params.id);
   const updates = req.body;
 
+  // Walidacja pól (Whitelist)
   const allowedUpdates = ['title', 'description', 'completed'];
   const updatesKeys = Object.keys(updates);
-
   const isValidOperation = updatesKeys.every((key) => allowedUpdates.includes(key));
 
   if (!isValidOperation) {
@@ -99,39 +98,29 @@ app.put('/tasks/:id', async (req, res) => {
   }
 
   try {
-    // Odczyt zadań
     const fileContent = await fs.readFile(filePath, 'utf8');
     let currentTasks = JSON.parse(fileContent);
 
-    // Szukanie zadania
     const taskIndex = currentTasks.findIndex(task => task.id === id);
 
-    // Obsługa błędu 404 - Task not found
     if (taskIndex === -1) {
-      return res.status(404).json({
-        error: "Task not found",
-        id: id
-      });
+      return res.status(404).json({ error: "Task not found", id: id });
     }
 
-    // Aktualizacja obiektu
+    // Aktualizacja
     const updatedTask = {
-      ...currentTasks[taskIndex], // Kopia starego
-      ...updates,                 // Nadpisanie nowymi polami
-      id: id,                     // ID bez zmian
-      updatedAt: new Date().toISOString() // Data edycji
+      ...currentTasks[taskIndex],
+      ...updates,
+      id: id,
+      updatedAt: new Date().toISOString()
     };
 
     currentTasks[taskIndex] = updatedTask;
-
-    // Zapis zmian
     await fs.writeFile(filePath, JSON.stringify(currentTasks, null, 2));
 
-    // Zwrot zaktualizowanego obiektu
     res.json(updatedTask);
 
   } catch (error) {
-    // Obsługa sytuacji, gdy plik nie istnieje przy próbie edycji
     if (error.code === 'ENOENT') {
         return res.status(404).json({ error: "Task not found", id: id });
     }
@@ -140,7 +129,45 @@ app.put('/tasks/:id', async (req, res) => {
   }
 });
 
-// --- 4. GET /health (Status serwera) ---
+// --- 4. DELETE /tasks/:id (Usuwanie zadania) ---
+app.delete('/tasks/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
+
+  try {
+    let currentTasks = [];
+    try {
+      const fileContent = await fs.readFile(filePath, 'utf8');
+      currentTasks = JSON.parse(fileContent);
+    } catch (err) {
+      if (err.code === 'ENOENT') {
+        return res.status(404).json({ error: "Task not found", id: id });
+      }
+      throw err;
+    }
+
+    const taskIndex = currentTasks.findIndex(task => task.id === id);
+
+    if (taskIndex === -1) {
+      return res.status(404).json({ error: "Task not found", id: id });
+    }
+
+    // Usunięcie z tablicy
+    const deletedTask = currentTasks.splice(taskIndex, 1)[0];
+
+    await fs.writeFile(filePath, JSON.stringify(currentTasks, null, 2));
+
+    res.json({
+      message: "Task deleted successfully",
+      deletedTask: deletedTask
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Błąd serwera przy usuwaniu' });
+  }
+});
+
+// --- 5. GET /health (Status serwera) ---
 app.get('/health', (req, res) => {
   res.json({
     status: "OK",
@@ -152,6 +179,6 @@ app.get('/health', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Serwer działa na porcie ${PORT}`);
   console.log(` - GET, POST  http://localhost:${PORT}/tasks`);
-  console.log(` - PUT        http://localhost:${PORT}/tasks/:id`);
+  console.log(` - PUT, DEL   http://localhost:${PORT}/tasks/:id`);
   console.log(` - GET        http://localhost:${PORT}/health`);
 });
