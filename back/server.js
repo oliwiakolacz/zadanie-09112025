@@ -35,11 +35,11 @@ app.get('/tasks', async (req, res) => {
 // --- 2. POST /tasks (Dodawanie nowego zadania) ---
 app.post('/tasks', async (req, res) => {
   try {
-    const userData = req.body;
+    const { title, description } = req.body;
 
-    // Walidacja: czy przesłano dane
-    if (!userData || Object.keys(userData).length === 0) {
-      return res.status(400).json({ error: 'Brak danych zadania' });
+    // Walidacja: czy przesłano tytuł
+    if (!title || typeof title !== 'string' || !title.trim()) {
+      return res.status(400).json({ error: 'Tytuł jest wymagany.' });
     }
 
     // Odczyt obecnych zadań
@@ -58,13 +58,17 @@ app.post('/tasks', async (req, res) => {
     const maxId = currentTasks.reduce((max, task) => (task.id > max ? task.id : max), 0);
     const newId = maxId + 1;
 
-    // Tworzenie obiektu
+    // Tworzenie obiektu — tylko dozwolone pola
     const newTask = {
       id: newId,
-      ...userData,
+      title: title.trim(),
+      description: description !== undefined ? String(description).trim() : undefined,
       completed: false,
       createdAt: new Date().toISOString()
     };
+
+    // Usunięcie undefined pól (description opcjonalny)
+    Object.keys(newTask).forEach(key => newTask[key] === undefined && delete newTask[key]);
 
     // Zapis
     currentTasks.push(newTask);
