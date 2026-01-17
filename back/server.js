@@ -6,6 +6,7 @@ const app = express();
 const PORT = 3000;
 
 app.use(express.json());
+app.use(express.static(path.join(__dirname, '../front')));
 
 // Ścieżka do pliku z danymi
 const filePath = path.join(__dirname, 'data.json');
