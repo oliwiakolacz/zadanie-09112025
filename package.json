@@ -20,6 +20,6 @@
   },
   "homepage": "https://github.com/oliwiakolacz/zadanie-09112025#readme",
   "dependencies": {
-    "express": "^5.1.0"
+    "express": "^5.2.1"
   }
 }
