@@ -12,10 +12,50 @@
   <nav>
     <div class="nav-wrapper indigo">
       <span class="brand-logo center">Oliwia ToDo App</span>
+      <ul class="right hide-on-med-and-down">
+        <li id="user-info" style="display:none;">
+          <span id="user-email" class="white-text"></span>
+        </li>
+        <li id="logout-li" style="display:none;">
+          <a href="#" id="logout-btn"><i class="material-icons left">logout</i>Wyloguj</a>
+        </li>
+      </ul>
     </div>
   </nav>
 
-  <main class="container">
+  <!-- SEKCJA LOGOWANIA -->
+  <div id="auth-section" class="container">
+    <div class="row" style="margin-top: 50px;">
+      <div class="col s12 m6 offset-m3">
+        <div class="card">
+          <div class="card-content">
+            <span class="card-title center-align">Logowanie</span>
+            
+            <!-- Login Form -->
+            <form id="login-form" style="margin-top: 20px;">
+              <div class="input-field">
+                <i class="material-icons prefix">email</i>
+                <input id="login-email" type="email" required>
+                <label for="login-email">Email</label>
+              </div>
+              <div class="input-field">
+                <i class="material-icons prefix">lock</i>
+                <input id="login-password" type="password" required>
+                <label for="login-password">Hasło</label>
+              </div>
+              <button type="submit" class="btn indigo waves-effect waves-light col s12">
+                <i class="material-icons left">login</i>Zaloguj się
+              </button>
+            </form>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SEKCJA APLIKACJI (ukryta domyślnie) -->
+  <main id="app-section" class="container" style="display: none;">
     <div class="section">
       <form id="task-form" class="card-panel">
         <div class="row">
@@ -24,36 +64,17 @@
             <label for="title">Tytuł *</label>
           </div>
           <div class="input-field col s12 m6">
-            <input id="assignee" type="text">
-            <label for="assignee">Wykonawca</label>
-          </div>
-        </div>
-        <div class="row">
-          <div class="input-field col s12 m6">
             <textarea id="description" class="materialize-textarea"></textarea>
             <label for="description">Opis</label>
           </div>
-          <div class="input-field col s6 m3">
-            <select id="priority">
-              <option value="low">Niski</option>
-              <option value="medium">Średni</option>
-              <option value="high">Wysoki</option>
-            </select>
-            <label for="priority">Priorytet</label>
-          </div>
-          <div class="input-field col s6 m3">
-            <input id="deadline" type="text" class="datepicker">
-            <label for="deadline">Termin</label>
-          </div>
         </div>
         <div class="row">
-          <div class="input-field col s12 m6">
-            <input id="category" type="text">
-            <label for="category">Kategoria/Tagi (oddzielone przecinkami)</label>
-          </div>
-          <div class="input-field col s12 m6 right-align">
+          <div class="input-field col s12 right-align">
+            <button id="cancel-edit-btn" type="button" class="btn-flat waves-effect" style="display:none;">
+              Anuluj
+            </button>
             <button id="save-btn" type="submit" class="btn indigo waves-effect waves-light">
-              <i class="material-icons left">add_circle</i>Dodaj / Zapisz
+              <i class="material-icons left">add_circle</i>Dodaj zadanie
             </button>
           </div>
         </div>
@@ -75,11 +96,6 @@
 
     <div class="section">
       <span id="counter" class="badge indigo white-text"></span>
-      <div class="right">
-        <button id="export-btn" class="btn-flat"><i class="material-icons">file_download</i></button>
-        <button id="import-btn" class="btn-flat"><i class="material-icons">file_upload</i></button>
-        <input type="file" id="import-file" class="hide" accept="application/json">
-      </div>
     </div>
 
     <ul id="tasks-list" class="collection z-depth-1"></ul>

@@ -1,24 +1,5 @@
 /* Niestandardowe style - zgodnie z Material Design */
 
-/* Kolory priorytetów */
-.priority-low {
-  background: #e8f5e9 !important;
-  color: #388e3c !important;
-}
-.priority-medium {
-  background: #fffde7 !important;
-  color: #fbc02d !important;
-}
-.priority-high {
-  background: #ffebee !important;
-  color: #d32f2f !important;
-}
-
-/* Przeterminowane zadanie */
-.task-overdue {
-  border-left: 5px solid #d32f2f;
-}
-
 /* Zakończone zadanie */
 .completed .task-title {
   text-decoration: line-through;
@@ -28,16 +9,6 @@
   opacity: 0.65;
 }
 
-/* Tag/kategoria */
-.task-category {
-  font-size: 0.95em;
-  background: #e3e3e3;
-  color: #424242;
-  padding: 2px 8px;
-  border-radius: 4px;
-  margin-right: 6px;
-}
-
 /* Animacje */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px);}
@@ -45,4 +16,128 @@
 }
 .collection-item {
   animation: fadeIn 0.3s;
+}
+
+/* Lista zadań - lepsze wyrównanie z checkbox */
+.collection-item.avatar {
+  min-height: 70px;
+  padding-left: 72px;
+}
+
+.collection-item.avatar > label {
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Tytuł zadania */
+.task-title {
+  font-weight: 500;
+  font-size: 1.1em;
+}
+
+/* Sekcja autoryzacji */
+#auth-section .card {
+  margin-top: 30px;
+}
+
+#auth-section .tabs {
+  margin-bottom: 20px;
+}
+
+#auth-section .tabs .tab a {
+  color: #3f51b5;
+}
+
+#auth-section .tabs .tab a.active {
+  color: #3f51b5;
+  font-weight: bold;
+}
+
+#auth-section .tabs .indicator {
+  background-color: #3f51b5;
+}
+
+/* Navbar user info */
+#user-info {
+  padding-right: 10px;
+}
+
+#user-email {
+  font-size: 0.9em;
+  opacity: 0.9;
+}
+
+/* Przycisk anuluj edycję */
+#cancel-edit-btn {
+  margin-right: 10px;
+}
+
+/* Responsywność */
+@media only screen and (max-width: 600px) {
+  .brand-logo {
+    font-size: 1.2em !important;
+  }
+  
+  #user-info, #logout-li {
+    display: none !important;
+  }
+  
+  .collection-item .secondary-content {
+    position: relative;
+    top: auto;
+    right: auto;
+    float: right;
+    margin-top: 10px;
+  }
+}
+
+/* Toast customization */
+.toast {
+  border-radius: 4px;
+}
+
+/* Empty list message */
+#empty-list {
+  padding: 40px;
+  font-size: 1.2em;
+}
+
+/* Badge counter */
+#counter {
+  font-size: 1em;
+  padding: 5px 10px;
+  border-radius: 4px;
+}
+
+/* Form styling */
+#task-form {
+  margin-bottom: 20px;
+}
+
+#task-form .row {
+  margin-bottom: 10px;
+}
+
+/* Search field */
+#search {
+  margin-bottom: 20px;
+}
+
+/* Tabs styling */
+.tabs {
+  margin-bottom: 20px;
+}
+
+.tabs .tab a {
+  color: #3f51b5;
+}
+
+.tabs .tab a:hover {
+  color: #3f51b5;
+}
+
+.tabs .indicator {
+  background-color: #3f51b5;
 }

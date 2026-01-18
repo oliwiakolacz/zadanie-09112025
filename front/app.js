@@ -1,320 +1,432 @@
 // Główna logika aplikacji ToDo - Vanilla JS + Materialize CSS
+// Zintegrowane z REST API backend
 
 // -------------------------------------
-// Model i obsługa localStorage
+// Konfiguracja API
 // -------------------------------------
 
-const STORAGE_KEY = 'todo-tasks';
-
-/* Schemat zadania:
-{
-  id: 'string',
-  title: 'string',
-  description: 'string',
-  assignee: 'string',
-  priority: 'low'|'medium'|'high',
-  deadline: 'string', // ISO
-  status: 'active'|'completed',
-  categories: ['string'],
-  createdAt: 'string', // ISO
-  updatedAt: 'string' // ISO
-}
-*/
-
-// Pobieranie zadań z localStorage
-function getTasks() {
-  return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
-}
-
-// Zapisywanie zadań do localStorage
-function setTasks(tasks) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-}
-
-// Generowanie unikalnego ID zadania
-function generateId() {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-}
+const API_URL = window.location.origin;
 
 // -------------------------------------
-// Widoki i UI
+// Stan aplikacji
 // -------------------------------------
 
+let currentUser = null;
+let tasksCache = [];
+let editingId = null;
+let currentFilter = 'all';
+let searchQuery = '';
+
+// -------------------------------------
 // Elementy DOM
+// -------------------------------------
+
+// Sekcje
+const authSection = document.getElementById('auth-section');
+const appSection = document.getElementById('app-section');
+
+// Auth
+const loginForm = document.getElementById('login-form');
+const logoutBtn = document.getElementById('logout-btn');
+const logoutLi = document.getElementById('logout-li');
+const userInfo = document.getElementById('user-info');
+const userEmailSpan = document.getElementById('user-email');
+
+// Tasks
 const tasksList = document.getElementById('tasks-list');
 const taskForm = document.getElementById('task-form');
 const filterTabs = document.querySelectorAll('#filters a');
 const searchInput = document.getElementById('search-tasks');
 const counter = document.getElementById('counter');
 const emptyList = document.getElementById('empty-list');
-const exportBtn = document.getElementById('export-btn');
-const importBtn = document.getElementById('import-btn');
-const importFile = document.getElementById('import-file');
-const saveBtn = document.getElementById('save-btn'); // Poprawne odwołanie do przycisku
+const saveBtn = document.getElementById('save-btn');
+const cancelEditBtn = document.getElementById('cancel-edit-btn');
 
-// Tryb edycji
-let editingId = null;
-let currentFilter = 'all';
-let searchQuery = '';
+// -------------------------------------
+// Funkcje API
+// -------------------------------------
 
-// Inicjalizacja Materialize
-document.addEventListener('DOMContentLoaded', () => {
-  M.AutoInit();
-  renderTasks();
-});
+async function apiRequest(endpoint, options = {}) {
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+      },
+      credentials: 'include' // Ważne dla sesji!
+    });
 
-// Obsługa formularza dodawania/edycji zadania
-taskForm.addEventListener('submit', function (e) {
-  e.preventDefault();
-  const tasks = getTasks();
-  const title = taskForm.title.value.trim();
-  const description = taskForm.description.value.trim();
-  const assignee = taskForm.assignee.value.trim();
-  const deadline = taskForm.deadline.value ? new Date(taskForm.deadline.value).toISOString() : '';
-  const priority = taskForm.priority.value;
-  const categories = taskForm.category.value.split(',').map(s => s.trim()).filter(Boolean);
-  const now = new Date().toISOString();
-
-  if (!title) {
-    M.toast({ html: '[translate:Tytuł zadania jest wymagany.]', classes: 'red darken-1' });
-    return;
-  }
-
-  if (editingId) {
-    // Edycja zadania
-    const idx = tasks.findIndex(t => t.id === editingId);
-    if (idx !== -1) {
-      tasks[idx] = {
-        ...tasks[idx],
-        title,
-        description,
-        assignee,
-        deadline,
-        priority,
-        categories,
-        updatedAt: now
-      };
-      M.toast({ html: '[translate:Zadanie zaktualizowane!]', classes: 'indigo' });
+    // 204 No Content
+    if (response.status === 204) {
+      return { success: true };
     }
-    editingId = null;
-    saveBtn.innerHTML = '<i class="material-icons left">add_circle</i> [translate:Dodaj / Zapisz]';
-  } else {
-    // Nowe zadanie
-    const newTask = {
-      id: generateId(),
-      title,
-      description,
-      assignee,
-      priority,
-      deadline,
-      status: 'active',
-      categories,
-      createdAt: now,
-      updatedAt: now
-    };
-    tasks.unshift(newTask);
-    M.toast({ html: '[translate:Dodano nowe zadanie!]', classes: 'indigo' });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Błąd serwera');
+    }
+
+    return data;
+  } catch (error) {
+    console.error('API Error:', error);
+    throw error;
+  }
+}
+
+// Auth API
+async function login(email, password) {
+  return apiRequest('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password })
+  });
+}
+
+async function logout() {
+  return apiRequest('/auth/logout', { method: 'POST' });
+}
+
+async function getCurrentUser() {
+  return apiRequest('/auth/me');
+}
+
+// Tasks API
+async function getTasks() {
+  return apiRequest('/tasks');
+}
+
+async function createTask(title, description) {
+  return apiRequest('/tasks', {
+    method: 'POST',
+    body: JSON.stringify({ title, description })
+  });
+}
+
+async function updateTask(id, updates) {
+  return apiRequest(`/tasks/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(updates)
+  });
+}
+
+async function deleteTaskAPI(id) {
+  return apiRequest(`/tasks/${id}`, { method: 'DELETE' });
+}
+
+// -------------------------------------
+// Inicjalizacja
+// -------------------------------------
+
+document.addEventListener('DOMContentLoaded', async () => {
+  M.AutoInit();
+  
+  // Sprawdź czy użytkownik jest zalogowany
+  try {
+    const data = await getCurrentUser();
+    if (data.user) {
+      currentUser = data.user;
+      showApp();
+      await refreshTasks();
+    }
+  } catch (error) {
+    // Nie zalogowany - pokaż formularz logowania
+    showAuth();
   }
 
-  setTasks(tasks);
-  taskForm.reset();
-  M.updateTextFields();
-  renderTasks();
+  // Event listeners
+  setupEventListeners();
 });
 
-// Obsługa filtrów
-filterTabs.forEach(tab => {
-  tab.addEventListener('click', function (e) {
-    e.preventDefault();
-    filterTabs.forEach(t => t.classList.remove('active','indigo-text'));
-    this.classList.add('active','indigo-text');
-    currentFilter = this.getAttribute('href').replace('#', '');
+function setupEventListeners() {
+  // Login
+  loginForm.addEventListener('submit', handleLogin);
+  
+  // Logout
+  logoutBtn.addEventListener('click', handleLogout);
+  
+  // Task form
+  taskForm.addEventListener('submit', handleTaskSubmit);
+  
+  // Cancel edit
+  cancelEditBtn.addEventListener('click', cancelEdit);
+  
+  // Filters
+  filterTabs.forEach(tab => {
+    tab.addEventListener('click', function(e) {
+      e.preventDefault();
+      filterTabs.forEach(t => t.classList.remove('active', 'indigo-text'));
+      this.classList.add('active', 'indigo-text');
+      currentFilter = this.getAttribute('href').replace('#', '');
+      renderTasks();
+    });
+  });
+  
+  // Search
+  searchInput.addEventListener('input', function() {
+    searchQuery = this.value.toLowerCase();
     renderTasks();
   });
-});
+}
 
-// Obsługa wyszukiwarki
-searchInput.addEventListener('input', function () {
-  searchQuery = this.value.toLowerCase();
-  renderTasks();
-});
+// -------------------------------------
+// Obsługa widoków
+// -------------------------------------
 
-// Obsługa eksportu
-exportBtn.addEventListener('click', () => {
-  const data = JSON.stringify(getTasks(), null, 2);
-  const blob = new Blob([data], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'tasks.json';
-  a.click();
-  URL.revokeObjectURL(url);
-});
+function showAuth() {
+  authSection.style.display = 'block';
+  appSection.style.display = 'none';
+  userInfo.style.display = 'none';
+  logoutLi.style.display = 'none';
+}
 
-// Obsługa importu (plik)
-importBtn.addEventListener('click', () => importFile.click());
-importFile.addEventListener('change', function () {
-  const file = this.files[0];
-  if (file && file.type === 'application/json') {
-    const reader = new FileReader();
-    reader.onload = e => {
-      try {
-        const tasks = JSON.parse(e.target.result);
-        if (Array.isArray(tasks)) {
-          setTasks(tasks);
-          renderTasks();
-          M.toast({ html: '[translate:Zaimportowano zadania!]', classes: 'indigo' });
-        }
-      } catch {
-        M.toast({ html: '[translate:Nieprawidłowy plik JSON!]', classes: 'red darken-1' });
-      }
-    };
-    reader.readAsText(file);
+function showApp() {
+  authSection.style.display = 'none';
+  appSection.style.display = 'block';
+  userInfo.style.display = 'inline';
+  logoutLi.style.display = 'inline';
+  userEmailSpan.textContent = currentUser.email;
+  
+  // Reinicjalizuj tabs
+  const tabsEl = document.querySelector('#filters');
+  M.Tabs.init(tabsEl);
+}
+
+// -------------------------------------
+// Obsługa autoryzacji
+// -------------------------------------
+
+async function handleLogin(e) {
+  e.preventDefault();
+  
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  
+  try {
+    const data = await login(email, password);
+    currentUser = data.user;
+    M.toast({ html: 'Zalogowano pomyślnie!', classes: 'green' });
+    showApp();
+    await refreshTasks();
+    loginForm.reset();
+  } catch (error) {
+    M.toast({ html: error.message || 'Błąd logowania', classes: 'red darken-1' });
   }
-  this.value = '';
-});
+}
 
+async function handleLogout(e) {
+  e.preventDefault();
+  
+  try {
+    await logout();
+    currentUser = null;
+    tasksCache = [];
+    M.toast({ html: 'Wylogowano', classes: 'blue' });
+    showAuth();
+  } catch (error) {
+    M.toast({ html: 'Błąd wylogowania', classes: 'red darken-1' });
+  }
+}
+
+// -------------------------------------
+// Obsługa zadań
+// -------------------------------------
+
+async function refreshTasks() {
+  try {
+    tasksCache = await getTasks();
+    renderTasks();
+  } catch (error) {
+    M.toast({ html: 'Błąd pobierania zadań', classes: 'red darken-1' });
+  }
+}
+
+async function handleTaskSubmit(e) {
+  e.preventDefault();
+  
+  const title = document.getElementById('title').value.trim();
+  const description = document.getElementById('description').value.trim();
+  
+  if (!title) {
+    M.toast({ html: 'Tytuł jest wymagany!', classes: 'red darken-1' });
+    return;
+  }
+  
+  try {
+    if (editingId) {
+      // Edycja
+      await updateTask(editingId, { title, description });
+      M.toast({ html: 'Zadanie zaktualizowane!', classes: 'indigo' });
+      cancelEdit();
+    } else {
+      // Nowe zadanie
+      await createTask(title, description);
+      M.toast({ html: 'Dodano nowe zadanie!', classes: 'green' });
+    }
+    
+    taskForm.reset();
+    M.updateTextFields();
+    await refreshTasks();
+  } catch (error) {
+    M.toast({ html: error.message || 'Błąd zapisu', classes: 'red darken-1' });
+  }
+}
+
+function startEdit(id) {
+  const task = tasksCache.find(t => t.id === id);
+  if (!task) return;
+  
+  document.getElementById('title').value = task.title;
+  document.getElementById('description').value = task.description || '';
+  M.updateTextFields();
+  
+  editingId = id;
+  saveBtn.innerHTML = '<i class="material-icons left">edit</i>Zapisz zmiany';
+  cancelEditBtn.style.display = 'inline-block';
+  
+  // Scroll do formularza
+  taskForm.scrollIntoView({ behavior: 'smooth' });
+  
+  M.toast({ html: 'Tryb edycji', classes: 'blue' });
+}
+
+function cancelEdit() {
+  editingId = null;
+  taskForm.reset();
+  M.updateTextFields();
+  saveBtn.innerHTML = '<i class="material-icons left">add_circle</i>Dodaj zadanie';
+  cancelEditBtn.style.display = 'none';
+}
+
+async function toggleComplete(id, completed) {
+  try {
+    await updateTask(id, { completed });
+    const msg = completed ? 'Zadanie zakończone!' : 'Przywrócono zadanie';
+    M.toast({ html: msg, classes: completed ? 'green' : 'blue' });
+    await refreshTasks();
+  } catch (error) {
+    M.toast({ html: 'Błąd aktualizacji', classes: 'red darken-1' });
+  }
+}
+
+async function deleteTask(id) {
+  if (!confirm('Czy na pewno chcesz usunąć to zadanie?')) {
+    return;
+  }
+  
+  try {
+    await deleteTaskAPI(id);
+    M.toast({ html: 'Zadanie usunięte!', classes: 'red' });
+    await refreshTasks();
+  } catch (error) {
+    M.toast({ html: error.message || 'Błąd usuwania', classes: 'red darken-1' });
+  }
+}
+
+// -------------------------------------
 // Renderowanie listy zadań
-function renderTasks() {
-  let tasks = getTasks();
+// -------------------------------------
 
+function renderTasks() {
+  let tasks = [...tasksCache];
+  
   // Filtrowanie
   if (currentFilter !== 'all') {
-    tasks = tasks.filter(t => currentFilter === 'active' ? t.status === 'active' : t.status === 'completed');
+    tasks = tasks.filter(t => 
+      currentFilter === 'active' ? !t.completed : t.completed
+    );
   }
+  
   // Wyszukiwanie
   if (searchQuery) {
     tasks = tasks.filter(t =>
       t.title.toLowerCase().includes(searchQuery) ||
-      t.description?.toLowerCase().includes(searchQuery) ||
-      t.assignee?.toLowerCase().includes(searchQuery) ||
-      (t.categories || []).some(cat => cat.toLowerCase().includes(searchQuery))
+      (t.description && t.description.toLowerCase().includes(searchQuery))
     );
   }
-
+  
   // Licznik aktywnych
-  const allTasks = getTasks();
-  const activeCount = allTasks.filter(t => t.status === 'active').length;
-  counter.textContent = `[translate:Aktywnych:] ${activeCount}`;
-
+  const activeCount = tasksCache.filter(t => !t.completed).length;
+  counter.textContent = `Aktywnych: ${activeCount}`;
+  
+  // Wyczyść listę
   tasksList.innerHTML = '';
+  
   if (tasks.length === 0) {
     emptyList.style.display = 'block';
     return;
   } else {
     emptyList.style.display = 'none';
   }
-
+  
+  // Renderuj zadania
   tasks.forEach(task => {
-    const deadline = task.deadline ? new Date(task.deadline) : null;
-    const overdue = deadline && task.status === 'active' && (deadline < new Date());
     const li = document.createElement('li');
-    li.className = `collection-item avatar ${task.status === 'completed' ? 'completed' : ''} ${overdue ? 'task-overdue' : ''} priority-${task.priority}`;
+    li.className = `collection-item avatar ${task.completed ? 'completed' : ''}`;
     li.setAttribute('data-id', task.id);
-
+    
+    const createdDate = new Date(task.created_at).toLocaleDateString('pl-PL');
+    
     li.innerHTML = `
       <label>
-        <input type="checkbox" class="filled-in complete-checkbox" ${task.status === 'completed' ? 'checked' : ''}/>
+        <input type="checkbox" class="filled-in complete-checkbox" ${task.completed ? 'checked' : ''}/>
         <span></span>
       </label>
-      <span class="title task-title">${task.title}</span>
+      <span class="title task-title">${escapeHtml(task.title)}</span>
       <p>
-        ${task.description ? `<span>${task.description}</span><br>` : ''}
-        <i class="material-icons tiny tooltipped" data-tooltip="[translate:Wykonawca]">person</i> ${task.assignee || '-'}
-        &nbsp; ${(task.categories || []).map(cat => `<span class="task-category">${cat}</span>`).join('')}
-        <br>
-        <i class="material-icons tiny tooltipped" data-tooltip="[translate:Priorytet]">priority_high</i>
-        <span class="priority-label">${priorityLabel(task.priority)}</span>
-        &nbsp; <i class="material-icons tiny" data-tooltip="[translate:Deadline]">event</i>
-        <span class="${overdue ? 'red-text' : ''}">${task.deadline ? formatDate(task.deadline) : '-'}</span>
+        ${task.description ? `<span>${escapeHtml(task.description)}</span><br>` : ''}
+        <small class="grey-text">Utworzono: ${createdDate}</small>
+        ${task.user_email ? `<br><small class="grey-text"><i class="material-icons tiny">person</i> ${escapeHtml(task.user_email)}</small>` : ''}
       </p>
       <div class="secondary-content">
-        <a href="#" class="edit-btn btn-flat tooltipped" data-tooltip="[translate:Edytuj]"><i class="material-icons">edit</i></a>
-        <a href="#" class="delete-btn btn-flat red-text tooltipped" data-tooltip="[translate:Usuń]"><i class="material-icons">delete</i></a>
+        <a href="#" class="edit-btn btn-flat tooltipped" data-position="top" data-tooltip="Edytuj">
+          <i class="material-icons">edit</i>
+        </a>
+        <a href="#" class="delete-btn btn-flat red-text tooltipped" data-position="top" data-tooltip="Usuń">
+          <i class="material-icons">delete</i>
+        </a>
       </div>
     `;
+    
     tasksList.appendChild(li);
   });
-
+  
   // Inicjalizacja tooltips
-  const tooltips = document.querySelectorAll('.tooltipped');
-  M.Tooltip.init(tooltips);
-
-  // Obsługa działań dla każdego zadania
+  M.Tooltip.init(document.querySelectorAll('.tooltipped'));
+  
+  // Event listeners dla checkboxów
   tasksList.querySelectorAll('.complete-checkbox').forEach(cb => {
-    cb.addEventListener('change', function () {
-      const id = this.closest('.collection-item').dataset.id;
+    cb.addEventListener('change', function() {
+      const id = parseInt(this.closest('.collection-item').dataset.id);
       toggleComplete(id, this.checked);
     });
   });
-
+  
+  // Event listeners dla edycji
   tasksList.querySelectorAll('.edit-btn').forEach(btn => {
-    btn.addEventListener('click', function (e) {
+    btn.addEventListener('click', function(e) {
       e.preventDefault();
-      const id = this.closest('.collection-item').dataset.id;
+      const id = parseInt(this.closest('.collection-item').dataset.id);
       startEdit(id);
     });
   });
-
+  
+  // Event listeners dla usuwania
   tasksList.querySelectorAll('.delete-btn').forEach(btn => {
-    btn.addEventListener('click', function (e) {
+    btn.addEventListener('click', function(e) {
       e.preventDefault();
-      const id = this.closest('.collection-item').dataset.id;
+      const id = parseInt(this.closest('.collection-item').dataset.id);
       deleteTask(id);
     });
   });
 }
 
-// Oznaczanie zadania jako zakończone/przywracanie
-function toggleComplete(id, checked) {
-  const tasks = getTasks();
-  const idx = tasks.findIndex(t => t.id === id);
-  if (idx !== -1) {
-    tasks[idx].status = checked ? 'completed' : 'active';
-    tasks[idx].updatedAt = new Date().toISOString();
-    setTasks(tasks);
-    renderTasks();
-    let msg = checked ? '[translate:Zadanie oznaczone jako zakończone.]' : '[translate:Przywrócono zadanie jako aktywne.]';
-    M.toast({ html: msg, classes: checked ? 'green' : 'blue' });
-  }
-}
+// -------------------------------------
+// Pomocnicze
+// -------------------------------------
 
-// Edycja zadania
-function startEdit(id) {
-  const tasks = getTasks();
-  const task = tasks.find(t => t.id === id);
-  if (!task) return;
-  taskForm.title.value = task.title;
-  taskForm.description.value = task.description || '';
-  taskForm.assignee.value = task.assignee || '';
-  taskForm.priority.value = task.priority;
-  M.FormSelect.init(taskForm.priority);
-  taskForm.deadline.value = task.deadline ? formatDate(task.deadline) : '';
-  taskForm.category.value = (task.categories || []).join(', ');
-  editingId = id;
-  saveBtn.innerHTML = '<i class="material-icons left">edit</i> [translate:Zapisz zmiany]';
-  M.updateTextFields();
-  M.toast({ html: '[translate:Tryb edycji zadania.]', classes: 'blue' });
-}
-
-// Usuwanie zadania
-function deleteTask(id) {
-  let tasks = getTasks();
-  tasks = tasks.filter(t => t.id !== id);
-  setTasks(tasks);
-  renderTasks();
-  M.toast({ html: '[translate:Zadanie usunięte!]', classes: 'red' });
-}
-
-// Narzędziowe
-function formatDate(dateStr) {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('pl-PL');
-}
-function priorityLabel(priority) {
-  return {
-    'low': '[translate:Niski]',
-    'medium': '[translate:Średni]',
-    'high': '[translate:Wysoki]'
-  }[priority] || priority;
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
