@@ -1,10 +1,10 @@
-# TODO API - Menadżer Zadań
+# Oliwia ToDo App - Aplikacja do zarządzania zadaniami
 
 **Autor:** Oliwia Kołacz
 **Data:** 09.11.2025
 
 ## Opis projektu
-REST API dla menadżera zadań z bazą danych SQLite, autoryzacją sesyjną oraz rolami użytkowników (user/admin).
+Aplikacja webowa do zarządzania zadaniami z bazą danych SQLite, autoryzacją sesyjną oraz rolami użytkowników (user/admin).
 
 ## Technologie
 - Node.js
@@ -315,18 +315,6 @@ curl -X PUT http://localhost:3000/tasks/1 \
 curl -X POST http://localhost:3000/auth/logout -b cookies.txt
 ```
 
-## Kody odpowiedzi HTTP
-
-| Kod | Znaczenie |
-|-----|-----------|
-| 200 | OK |
-| 201 | Utworzono |
-| 204 | Usunięto (brak treści) |
-| 400 | Błędne dane |
-| 401 | Brak autoryzacji |
-| 403 | Brak uprawnień |
-| 404 | Nie znaleziono |
-| 500 | Błąd serwera |
 
 ## Zrzuty ekranu
 
