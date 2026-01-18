@@ -57,6 +57,10 @@ function initDatabase() {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
         description TEXT,
+        assignee TEXT,
+        priority TEXT DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high')),
+        deadline TEXT,
+        categories TEXT,
         completed BOOLEAN DEFAULT 0,
         user_id INTEGER NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -251,15 +255,28 @@ app.get('/tasks', isAuthenticated, (req, res) => {
 
 // POST /tasks - Tworzenie zadania
 app.post('/tasks', isAuthenticated, (req, res) => {
-  const { title, description } = req.body;
+  const { title, description, assignee, priority, deadline, categories } = req.body;
 
   if (!title || typeof title !== 'string' || !title.trim()) {
     return res.status(400).json({ error: 'Title is required' });
   }
 
+  // Walidacja priority
+  const validPriorities = ['low', 'medium', 'high'];
+  const taskPriority = priority && validPriorities.includes(priority) ? priority : 'medium';
+
   db.run(
-    'INSERT INTO tasks (title, description, user_id) VALUES (?, ?, ?)',
-    [title.trim(), description ? description.trim() : null, req.session.userId],
+    `INSERT INTO tasks (title, description, assignee, priority, deadline, categories, user_id) 
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [
+      title.trim(), 
+      description ? description.trim() : null,
+      assignee ? assignee.trim() : null,
+      taskPriority,
+      deadline ? deadline.trim() : null,
+      categories ? categories.trim() : null,
+      req.session.userId
+    ],
     function(err) {
       if (err) {
         console.error(err);
@@ -285,10 +302,10 @@ app.post('/tasks', isAuthenticated, (req, res) => {
 // PUT /tasks/:id - Aktualizacja zadania
 app.put('/tasks/:id', isAuthenticated, (req, res) => {
   const taskId = parseInt(req.params.id);
-  const { title, description, completed } = req.body;
+  const { title, description, assignee, priority, deadline, categories, completed } = req.body;
 
   // Walidacja pól (whitelist)
-  const allowedUpdates = ['title', 'description', 'completed'];
+  const allowedUpdates = ['title', 'description', 'assignee', 'priority', 'deadline', 'categories', 'completed'];
   const updateKeys = Object.keys(req.body);
   const isValidOperation = updateKeys.every(key => allowedUpdates.includes(key));
 
@@ -297,6 +314,14 @@ app.put('/tasks/:id', isAuthenticated, (req, res) => {
       error: 'Invalid updates',
       allowedFields: allowedUpdates
     });
+  }
+
+  // Walidacja priority jeśli podane
+  if (priority !== undefined) {
+    const validPriorities = ['low', 'medium', 'high'];
+    if (!validPriorities.includes(priority)) {
+      return res.status(400).json({ error: 'Priority must be: low, medium, or high' });
+    }
   }
 
   // Sprawdź czy task istnieje i czy user ma dostęp
@@ -326,6 +351,22 @@ app.put('/tasks/:id', isAuthenticated, (req, res) => {
     if (description !== undefined) {
       updates.push('description = ?');
       values.push(description ? description.trim() : null);
+    }
+    if (assignee !== undefined) {
+      updates.push('assignee = ?');
+      values.push(assignee ? assignee.trim() : null);
+    }
+    if (priority !== undefined) {
+      updates.push('priority = ?');
+      values.push(priority);
+    }
+    if (deadline !== undefined) {
+      updates.push('deadline = ?');
+      values.push(deadline ? deadline.trim() : null);
+    }
+    if (categories !== undefined) {
+      updates.push('categories = ?');
+      values.push(categories ? categories.trim() : null);
     }
     if (completed !== undefined) {
       updates.push('completed = ?');

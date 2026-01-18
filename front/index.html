@@ -64,12 +64,34 @@
             <label for="title">Tytuł *</label>
           </div>
           <div class="input-field col s12 m6">
-            <textarea id="description" class="materialize-textarea"></textarea>
-            <label for="description">Opis</label>
+            <input id="assignee" type="text">
+            <label for="assignee">Wykonawca</label>
           </div>
         </div>
         <div class="row">
-          <div class="input-field col s12 right-align">
+          <div class="input-field col s12 m6">
+            <textarea id="description" class="materialize-textarea"></textarea>
+            <label for="description">Opis</label>
+          </div>
+          <div class="input-field col s6 m3">
+            <select id="priority">
+              <option value="low">Niski</option>
+              <option value="medium" selected>Średni</option>
+              <option value="high">Wysoki</option>
+            </select>
+            <label for="priority">Priorytet</label>
+          </div>
+          <div class="input-field col s6 m3">
+            <input id="deadline" type="text" class="datepicker">
+            <label for="deadline">Termin</label>
+          </div>
+        </div>
+        <div class="row">
+          <div class="input-field col s12 m6">
+            <input id="categories" type="text">
+            <label for="categories">Kategorie (oddzielone przecinkami)</label>
+          </div>
+          <div class="input-field col s12 m6 right-align">
             <button id="cancel-edit-btn" type="button" class="btn-flat waves-effect" style="display:none;">
               Anuluj
             </button>

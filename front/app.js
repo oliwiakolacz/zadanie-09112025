@@ -54,10 +54,9 @@ async function apiRequest(endpoint, options = {}) {
         'Content-Type': 'application/json',
         ...options.headers
       },
-      credentials: 'include' // Ważne dla sesji!
+      credentials: 'include'
     });
 
-    // 204 No Content
     if (response.status === 204) {
       return { success: true };
     }
@@ -96,10 +95,10 @@ async function getTasks() {
   return apiRequest('/tasks');
 }
 
-async function createTask(title, description) {
+async function createTask(taskData) {
   return apiRequest('/tasks', {
     method: 'POST',
-    body: JSON.stringify({ title, description })
+    body: JSON.stringify(taskData)
   });
 }
 
@@ -121,6 +120,23 @@ async function deleteTaskAPI(id) {
 document.addEventListener('DOMContentLoaded', async () => {
   M.AutoInit();
   
+  // Inicjalizacja datepicker
+  const datePickerElems = document.querySelectorAll('.datepicker');
+  M.Datepicker.init(datePickerElems, {
+    format: 'yyyy-mm-dd',
+    firstDay: 1,
+    i18n: {
+      cancel: 'Anuluj',
+      clear: 'Wyczyść',
+      done: 'OK',
+      months: ['Styczeń', 'Luty', 'Marzec', 'Kwiecień', 'Maj', 'Czerwiec', 'Lipiec', 'Sierpień', 'Wrzesień', 'Październik', 'Listopad', 'Grudzień'],
+      monthsShort: ['Sty', 'Lut', 'Mar', 'Kwi', 'Maj', 'Cze', 'Lip', 'Sie', 'Wrz', 'Paź', 'Lis', 'Gru'],
+      weekdays: ['Niedziela', 'Poniedziałek', 'Wtorek', 'Środa', 'Czwartek', 'Piątek', 'Sobota'],
+      weekdaysShort: ['Nd', 'Pn', 'Wt', 'Śr', 'Cz', 'Pt', 'So'],
+      weekdaysAbbrev: ['N', 'P', 'W', 'Ś', 'C', 'P', 'S']
+    }
+  });
+  
   // Sprawdź czy użytkownik jest zalogowany
   try {
     const data = await getCurrentUser();
@@ -130,28 +146,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       await refreshTasks();
     }
   } catch (error) {
-    // Nie zalogowany - pokaż formularz logowania
     showAuth();
   }
 
-  // Event listeners
   setupEventListeners();
 });
 
 function setupEventListeners() {
-  // Login
   loginForm.addEventListener('submit', handleLogin);
-  
-  // Logout
   logoutBtn.addEventListener('click', handleLogout);
-  
-  // Task form
   taskForm.addEventListener('submit', handleTaskSubmit);
-  
-  // Cancel edit
   cancelEditBtn.addEventListener('click', cancelEdit);
   
-  // Filters
   filterTabs.forEach(tab => {
     tab.addEventListener('click', function(e) {
       e.preventDefault();
@@ -162,7 +168,6 @@ function setupEventListeners() {
     });
   });
   
-  // Search
   searchInput.addEventListener('input', function() {
     searchQuery = this.value.toLowerCase();
     renderTasks();
@@ -187,7 +192,8 @@ function showApp() {
   logoutLi.style.display = 'inline';
   userEmailSpan.textContent = currentUser.email;
   
-  // Reinicjalizuj tabs
+  // Reinicjalizuj komponenty Materialize
+  M.FormSelect.init(document.querySelectorAll('select'));
   const tabsEl = document.querySelector('#filters');
   M.Tabs.init(tabsEl);
 }
@@ -246,30 +252,47 @@ async function handleTaskSubmit(e) {
   
   const title = document.getElementById('title').value.trim();
   const description = document.getElementById('description').value.trim();
+  const assignee = document.getElementById('assignee').value.trim();
+  const priority = document.getElementById('priority').value;
+  const deadline = document.getElementById('deadline').value.trim();
+  const categories = document.getElementById('categories').value.trim();
   
   if (!title) {
     M.toast({ html: 'Tytuł jest wymagany!', classes: 'red darken-1' });
     return;
   }
   
+  const taskData = {
+    title,
+    description: description || null,
+    assignee: assignee || null,
+    priority,
+    deadline: deadline || null,
+    categories: categories || null
+  };
+  
   try {
     if (editingId) {
-      // Edycja
-      await updateTask(editingId, { title, description });
+      await updateTask(editingId, taskData);
       M.toast({ html: 'Zadanie zaktualizowane!', classes: 'indigo' });
       cancelEdit();
     } else {
-      // Nowe zadanie
-      await createTask(title, description);
+      await createTask(taskData);
       M.toast({ html: 'Dodano nowe zadanie!', classes: 'green' });
     }
     
-    taskForm.reset();
-    M.updateTextFields();
+    resetForm();
     await refreshTasks();
   } catch (error) {
     M.toast({ html: error.message || 'Błąd zapisu', classes: 'red darken-1' });
   }
+}
+
+function resetForm() {
+  taskForm.reset();
+  document.getElementById('priority').value = 'medium';
+  M.FormSelect.init(document.querySelectorAll('select'));
+  M.updateTextFields();
 }
 
 function startEdit(id) {
@@ -278,22 +301,25 @@ function startEdit(id) {
   
   document.getElementById('title').value = task.title;
   document.getElementById('description').value = task.description || '';
+  document.getElementById('assignee').value = task.assignee || '';
+  document.getElementById('priority').value = task.priority || 'medium';
+  document.getElementById('deadline').value = task.deadline || '';
+  document.getElementById('categories').value = task.categories || '';
+  
+  M.FormSelect.init(document.querySelectorAll('select'));
   M.updateTextFields();
   
   editingId = id;
   saveBtn.innerHTML = '<i class="material-icons left">edit</i>Zapisz zmiany';
   cancelEditBtn.style.display = 'inline-block';
   
-  // Scroll do formularza
   taskForm.scrollIntoView({ behavior: 'smooth' });
-  
   M.toast({ html: 'Tryb edycji', classes: 'blue' });
 }
 
 function cancelEdit() {
   editingId = null;
-  taskForm.reset();
-  M.updateTextFields();
+  resetForm();
   saveBtn.innerHTML = '<i class="material-icons left">add_circle</i>Dodaj zadanie';
   cancelEditBtn.style.display = 'none';
 }
@@ -341,7 +367,9 @@ function renderTasks() {
   if (searchQuery) {
     tasks = tasks.filter(t =>
       t.title.toLowerCase().includes(searchQuery) ||
-      (t.description && t.description.toLowerCase().includes(searchQuery))
+      (t.description && t.description.toLowerCase().includes(searchQuery)) ||
+      (t.assignee && t.assignee.toLowerCase().includes(searchQuery)) ||
+      (t.categories && t.categories.toLowerCase().includes(searchQuery))
     );
   }
   
@@ -349,7 +377,6 @@ function renderTasks() {
   const activeCount = tasksCache.filter(t => !t.completed).length;
   counter.textContent = `Aktywnych: ${activeCount}`;
   
-  // Wyczyść listę
   tasksList.innerHTML = '';
   
   if (tasks.length === 0) {
@@ -359,13 +386,19 @@ function renderTasks() {
     emptyList.style.display = 'none';
   }
   
-  // Renderuj zadania
   tasks.forEach(task => {
     const li = document.createElement('li');
-    li.className = `collection-item avatar ${task.completed ? 'completed' : ''}`;
+    
+    // Sprawdź czy zadanie jest przeterminowane
+    const isOverdue = task.deadline && !task.completed && new Date(task.deadline) < new Date();
+    
+    li.className = `collection-item avatar ${task.completed ? 'completed' : ''} ${isOverdue ? 'task-overdue' : ''} priority-${task.priority || 'medium'}`;
     li.setAttribute('data-id', task.id);
     
-    const createdDate = new Date(task.created_at).toLocaleDateString('pl-PL');
+    // Formatuj kategorie jako tagi
+    const categoriesTags = task.categories 
+      ? task.categories.split(',').map(cat => `<span class="task-category">${escapeHtml(cat.trim())}</span>`).join(' ')
+      : '';
     
     li.innerHTML = `
       <label>
@@ -375,8 +408,14 @@ function renderTasks() {
       <span class="title task-title">${escapeHtml(task.title)}</span>
       <p>
         ${task.description ? `<span>${escapeHtml(task.description)}</span><br>` : ''}
-        <small class="grey-text">Utworzono: ${createdDate}</small>
-        ${task.user_email ? `<br><small class="grey-text"><i class="material-icons tiny">person</i> ${escapeHtml(task.user_email)}</small>` : ''}
+        <i class="material-icons tiny">person</i> ${escapeHtml(task.assignee) || '-'}
+        &nbsp; ${categoriesTags}
+        <br>
+        <i class="material-icons tiny">priority_high</i>
+        <span class="priority-label">${priorityLabel(task.priority)}</span>
+        &nbsp; <i class="material-icons tiny">event</i>
+        <span class="${isOverdue ? 'red-text' : ''}">${task.deadline ? formatDate(task.deadline) : '-'}</span>
+        ${task.user_email ? `<br><small class="grey-text"><i class="material-icons tiny">account_circle</i> ${escapeHtml(task.user_email)}</small>` : ''}
       </p>
       <div class="secondary-content">
         <a href="#" class="edit-btn btn-flat tooltipped" data-position="top" data-tooltip="Edytuj">
@@ -394,7 +433,7 @@ function renderTasks() {
   // Inicjalizacja tooltips
   M.Tooltip.init(document.querySelectorAll('.tooltipped'));
   
-  // Event listeners dla checkboxów
+  // Event listeners
   tasksList.querySelectorAll('.complete-checkbox').forEach(cb => {
     cb.addEventListener('change', function() {
       const id = parseInt(this.closest('.collection-item').dataset.id);
@@ -402,7 +441,6 @@ function renderTasks() {
     });
   });
   
-  // Event listeners dla edycji
   tasksList.querySelectorAll('.edit-btn').forEach(btn => {
     btn.addEventListener('click', function(e) {
       e.preventDefault();
@@ -411,7 +449,6 @@ function renderTasks() {
     });
   });
   
-  // Event listeners dla usuwania
   tasksList.querySelectorAll('.delete-btn').forEach(btn => {
     btn.addEventListener('click', function(e) {
       e.preventDefault();
@@ -422,11 +459,26 @@ function renderTasks() {
 }
 
 // -------------------------------------
-// Pomocnicze
+// Funkcje pomocnicze
 // -------------------------------------
 
 function escapeHtml(text) {
+  if (!text) return '';
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '-';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('pl-PL');
+}
+
+function priorityLabel(priority) {
+  return {
+    'low': 'Niski',
+    'medium': 'Średni',
+    'high': 'Wysoki'
+  }[priority] || 'Średni';
 }
